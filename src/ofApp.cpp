@@ -41,7 +41,6 @@ void ofApp::setup() {
 	// Get the window size for image loading
 	windowWidth = ofGetWidth();
 	windowHeight = ofGetHeight();
-	isOpen = 0;
 
 	MAZE_HEIGHT = MAZE_DEFAULT_HEIGHT;
 	MAZE_WIDTH = MAZE_DEFAULT_WIDTH;
@@ -143,7 +142,6 @@ void ofApp::appMenuFunction(string title, bool bChecked) {
 		loadGame();
 	}
 	if (title == "Exit") {
-		isOpen = 0;
 		freeMemory();
 		ofExit(); // Quit the application
 	}
@@ -154,6 +152,7 @@ void ofApp::appMenuFunction(string title, bool bChecked) {
 
 		isPlaying = false;
 		isWon = false;
+		isGiveup = false;
 
 		freeMemory();
 
@@ -288,15 +287,15 @@ void ofApp::draw() {
 
 	if (isPlaying) {
 		ofSetColor(100);
-		sprintf(str, "Elapsed time : %.3lfs", elapsedTime/(double)1000);
-		myFont.drawString(str, 15, ofGetHeight() - 20);
+		sprintf(str, "Move : %d\nElapsed time : %.3lfs", move, elapsedTime/(double)1000);
+		myFont.drawString(str, 15, ofGetHeight() - 20 - myFont.getLineHeight());
 
 		if (infiniteMode) {
 			ofSetColor(ofColor::red);
 			sprintf(str, "Infinite Mode");
-			myFont.drawString(str, 15, ofGetHeight() - 20 - myFont.getLineHeight()*2);
+			myFont.drawString(str, 15, ofGetHeight() - 20 - myFont.getLineHeight()*3);
 			sprintf(str, "%d block(s) found", blockFound);
-			myFont.drawString(str, 15, ofGetHeight() - 20 - myFont.getLineHeight());
+			myFont.drawString(str, 15, ofGetHeight() - 20 - myFont.getLineHeight()*2);
 		}
 	}
 
@@ -424,6 +423,7 @@ void ofApp::keyPressed(int key) {
 
 		if (playerMoved) {
 			DFS();
+			move++;
 			gameFinishCheck();
 		}
 
@@ -592,10 +592,10 @@ void ofApp::loadGame(bool reset) {
 
 	if (reset) {
 		blockFound = 0;
+		move = 0;
+		maze = new int[MAZE_HEIGHT*MAZE_WIDTH];
+		route = new int[MAZE_HEIGHT*MAZE_WIDTH];
 	}
-
-	maze = new int[MAZE_HEIGHT*MAZE_WIDTH];
-	route = new int[MAZE_HEIGHT*MAZE_WIDTH];
 
 	maze_size = (min(ofGetHeight(), ofGetWidth()) - MAZE_OFFSET) / max(MAZE_WIDTH, MAZE_HEIGHT);
 
@@ -609,8 +609,6 @@ void ofApp::loadGame(bool reset) {
 		maze[i] = WALL_ALL;
 	}
 	memset(route, 0, sizeof(int) * MAZE_HEIGHT*MAZE_WIDTH);
-
-	int seed = time(NULL);
 
 	if (reset) {
 		int init = getRandNum(0, MAZE_HEIGHT*MAZE_WIDTH - 1);
