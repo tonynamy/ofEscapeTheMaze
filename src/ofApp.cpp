@@ -94,14 +94,17 @@ void ofApp::setup() {
 	isPlaying = false;
 	showHint = false;
 	isWon = false;
-	menu->AddPopupItem(hPopup, "New Game", false, false); // Not checked and not auto-checked
+	isGiveup = false;
+	infiniteMode = false;
 
-	bShowInfo = true;  // screen info display on
-	bTopmost = false; // app is topmost
+	menu->AddPopupItem(hPopup, "New Game", false, false); // Not checked and not auto-checked
+	menu->AddPopupItem(hPopup, "Giveup", false, false); // Not checked and not auto-checked
+
+	menu->AddPopupSeparator(hPopup);
 	bFullscreen = false; // not fullscreen yet
 	menu->AddPopupItem(hPopup, "Full screen", false, false); // Not checked and not auto-check
-
-	menu->AddPopupItem(hPopup, "Game Setting", false, false); // Not checked and not auto-check
+	menu->AddPopupItem(hPopup, "Set Maze Size", false, false); // Not checked and not auto-check
+	menu->AddPopupItem(hPopup, "Infinite Mode", false, false); // Not checked and not auto-check
 
 	// Final File popup menu item is "Exit" - add a separator before it
 	menu->AddPopupSeparator(hPopup);
@@ -117,8 +120,6 @@ void ofApp::setup() {
 	menu->SetWindowMenu();
 
 	escapeRouteColor = ofColor(129, 205, 251);
-	dfsRouteColor = ofColor(236, 152, 196);
-	bfsRouteColor = ofColor(200, 111, 215);
 
 } // end Setup
 
@@ -147,7 +148,7 @@ void ofApp::appMenuFunction(string title, bool bChecked) {
 		ofExit(); // Quit the application
 	}
 
-	if (title == "Game Setting") {
+	if (title == "Set Maze Size") {
 		string a = ofSystemTextBoxDialog("Size of Maze?", to_string(MAZE_HEIGHT));
 		int size = std::stoi(a);
 
@@ -169,11 +170,22 @@ void ofApp::appMenuFunction(string title, bool bChecked) {
 		doFullScreen(bFullscreen); // But als take action immediately
 	}
 
+	if (title == "Infinite Mode") {
+		infiniteMode = !infiniteMode;
+		menu->SetPopupItem("Infinite Mode", infiniteMode);
+	}
+
+	if (title == "Giveup") {
+		if (isPlaying) {
+			isGiveup = true;
+		}
+	}
+
 	//
 	// Help menu
 	//
 	if (title == "About") {
-		ofSystemAlertDialog("Escape the maze! You win if you find red block.\nControl : Arrow Keys\nHint : h\nOn the lights: l\nAdjust light size : [ and ]\nMade by Sogang Univ. tonynamy@apperz.co.kr");
+		ofSystemAlertDialog("ofEscapeTheMaze\n2022-1 Comsil Final Project\nMade by Sogang Univ. tonynamy@apperz.co.kr");
 	}
 
 } // end appMenuFunction
@@ -233,7 +245,7 @@ void ofApp::draw() {
 		ofSetColor(ofColor::red);
 		ofDrawRectangle(gx, gy, player_size, player_size);
 
-		if (isLight && !isWon) {
+		if (isLight || isWon || isGiveup) {
 
 			fbo.allocate(ofGetWidth(), ofGetHeight(), GL_RGBA);
 
@@ -270,20 +282,27 @@ void ofApp::draw() {
 
 	}
 
-	if (isPlaying && !isWon) {
+	if (isPlaying && !isWon && !isGiveup) {
 		elapsedTime = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - game_clock).count();
 	}
 
 	if (isPlaying) {
 		ofSetColor(100);
-		// Show keyboard duplicates of menu functions
 		sprintf(str, "Elapsed time : %.3lfs", elapsedTime/(double)1000);
 		myFont.drawString(str, 15, ofGetHeight() - 20);
+
+		if (infiniteMode) {
+			ofSetColor(ofColor::red);
+			sprintf(str, "Infinite Mode");
+			myFont.drawString(str, 15, ofGetHeight() - 20 - myFont.getLineHeight()*2);
+			sprintf(str, "%d block(s) found", blockFound);
+			myFont.drawString(str, 15, ofGetHeight() - 20 - myFont.getLineHeight());
+		}
 	}
 
 	if (!isPlaying && !isWon) {
 
-		sprintf(str, "Press n to Start New Game");
+		sprintf(str, "Escape the maze!\nYou win if you find red block.\nControl : Arrow Keys\nHint : h\nOn the lights: l\nAdjust light size : [ and ]\nGive up : g\nInfinite Mode : i\n\nPress n to Start New Game");
 
 		auto lines = ofSplitString(str, "\n");
 		float y = (ofGetHeight() - messageFont.stringHeight(str)) / 2 + messageFont.getAscenderHeight();
@@ -298,7 +317,27 @@ void ofApp::draw() {
 
 	if (isWon) {
 
-		sprintf(str, "You Won!!\nTime : %.3lfs\nPress n to Start New Game", elapsedTime / (double)1000);
+		ofSetColor(ofColor::gold);
+
+		sprintf(str, "You Win!\nBlocks found : %d\nTime : %.3lfs\nPress n to Start New Game", blockFound, elapsedTime / (double)1000);
+		
+		auto lines = ofSplitString(str, "\n");
+		float y = (ofGetHeight() - messageFont.stringHeight(str)) / 2 + messageFont.getAscenderHeight();
+
+		for (auto line : lines) {
+			messageFont.drawString(line, ofGetWindowWidth() / 2 - messageFont.stringWidth(line) / 2, y);
+
+			y += messageFont.getLineHeight();
+
+		}
+	}
+
+	if (isGiveup) {
+
+		ofSetColor(ofColor::red);
+
+		sprintf(str, "You Lose!\nBlocks founded : %d\nTime : %.3lfs\nPress n to Start New Game", blockFound, elapsedTime / (double)1000);
+
 		auto lines = ofSplitString(str, "\n");
 		float y = (ofGetHeight() - messageFont.stringHeight(str)) / 2 + messageFont.getAscenderHeight();
 
@@ -335,32 +374,9 @@ void ofApp::doFullScreen(bool bFull)
 		ofSetWindowPosition((ofGetScreenWidth() - ofGetWidth()) / 2, (ofGetScreenHeight() - ofGetHeight()) / 2);
 		// Show the cursor again
 		ofShowCursor();
-		// Restore topmost state
-		if (bTopmost) doTopmost(true);
 	}
 
 } // end doFullScreen
-
-
-void ofApp::doTopmost(bool bTop)
-{
-	if (bTop) {
-		// get the current top window for return
-		hWndForeground = GetForegroundWindow();
-		// Set this window topmost
-		SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-		ShowWindow(hWnd, SW_SHOW);
-	}
-	else {
-		SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-		ShowWindow(hWnd, SW_SHOW);
-		// Reset the window that was topmost before
-		if (GetWindowLong(hWndForeground, GWL_EXSTYLE) & WS_EX_TOPMOST)
-			SetWindowPos(hWndForeground, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-		else
-			SetWindowPos(hWndForeground, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-	}
-} // end doTopmost
 
 
 //--------------------------------------------------------------
@@ -382,7 +398,7 @@ void ofApp::keyPressed(int key) {
 		loadGame();
 	}
 
-	if (isPlaying && !isWon) {
+	if (isPlaying && !isWon && !isGiveup) {
 
 		bool playerMoved = false;
 
@@ -426,20 +442,23 @@ void ofApp::keyPressed(int key) {
 		if (key == 'l') {
 			isLight = false;
 		}
+
+		if (key == 'g') {
+			if (isPlaying) {
+				isGiveup = true;
+			}
+		}
 	}
 
 	// Remove or show screen info
-	if (key == ' ') {
-		bShowInfo = !bShowInfo;
-		// Update the menu check mark because the item state has been changed here
-		menu->SetPopupItem("Show DFS", bShowInfo);
+	if (key == 'i') {
+		infiniteMode = !infiniteMode;
+		menu->SetPopupItem("Infinite Mode", infiniteMode);
 	}
 
 	if (key == 'f') {
 		bFullscreen = !bFullscreen;
 		doFullScreen(bFullscreen);
-		// Do not check this menu item
-		// If there is no menu when you call the SetPopupItem function it will crash
 	}
 
 } // end keyPressed
@@ -495,79 +514,85 @@ void ofApp::dragEvent(ofDragInfo dragInfo) {
 void ofApp::gameFinishCheck() {
 
 	if (playerY == goalY && playerX == goalX) {
-		isWon = true;
+		blockFound++;
+		if (infiniteMode) {
+			loadGame(false);
+		}
+		else {
+			isWon = true;
+		}
 	}
 
 }
 
 int ofApp::getRandNum(int min, int max) {
-	static thread_local std::mt19937 generator(time(NULL));
-	std::uniform_int_distribution<int> distribution(min, max);
-	return distribution(generator);
+	thread_local std::random_device rd;
+	thread_local std::mt19937 rng(rd());
+	thread_local std::uniform_int_distribution<int> uid;
+	return uid(rng, decltype(uid)::param_type{ min,max });
 }
 
-int ofApp::getRandBool(int seed, int i, int j, int w) {
-	//srand(seed + i * w + j);
+int ofApp::getRandBool() {
 	return getRandNum(0, 1);
 }
 
-void ofApp::createMaze(int i, int h, int w, int* maze, int* maze_set, int seed) {
+void ofApp::createMaze(int h, int w, int* maze, pair<int, int> start) {
 
-	for (int j = 0; j < w - 1; j++) {
-		if (abs(maze_set[i * w + j]) != abs(maze_set[i * w + j + 1]) && (i == h - 1 || getRandBool(seed, i, j, w))) {
-			maze[i * w + j] &= (WALL_ALL ^ WALL_RIGHT);
-			maze[i * w + j + 1] &= (WALL_ALL ^ WALL_LEFT);
-			
-			int change_maze_set = maze_set[i * w + j + 1];
-			for (int k = 0; k < w; k++) {
-				if (maze_set[i*w + k] == change_maze_set) {
-					maze_set[i*w + k] = maze_set[i * w + j];
-				}
-			}
-			
-		}
-	}
+	stack<pair<int, int>> dfsStack;
+	vector<int> v(h*w, 0);
+	vector<int> m;
 
-	if (i == h - 1) return;
+	int di[4] = { 1 , -1, 0, 0 };
+	int dj[4] = { 0, 0, 1, -1 };
+	int dw[4] = { WALL_DOWN, WALL_UP, WALL_RIGHT, WALL_LEFT };
+	int dnw[4] = { WALL_UP, WALL_DOWN, WALL_LEFT, WALL_RIGHT };
 
-	for (int j = 0; j < w; j++) {
+	dfsStack.push(start);
+	v[start.first*w + start.second] = 1;
 
-		if (maze_set[i * w + j] < 0) continue;
+	while (!dfsStack.empty()) {
 
-		int set = maze_set[i * w + j];
-		maze_set[i * w + j] = -set;
+		auto top = dfsStack.top();
 
-		int last_index = j;
-		int flag = 0;
+		int i = top.first;
+		int j = top.second;
 
-		for (int jj = j + 1; jj < w; jj++) {
+		for (int k = 0; k < 4; k++) {
 
-			if (maze_set[i * w + jj] == set) {
-				maze_set[i * w + jj] = -set;
-				last_index = jj;
+			int ni = i + di[k];
+			int nj = j + dj[k];
 
-				if (getRandBool(seed, i, jj, w)) {
-					maze[i * w + jj] &= (WALL_ALL ^ WALL_DOWN);
-					maze[(i + 1) * w + jj] &= (WALL_ALL ^ WALL_UP);
-					maze_set[(i + 1) * w + jj] = set;
-					flag = 1;
-				}
+			if (ni < 0 || ni >= h || nj < 0 || nj >= w) continue;
+			if (v[ni*w + nj] > 0) continue;
 
-			}
-
+			m.push_back(k);
 		}
 
-		if (!flag) {
-			maze[i * w + last_index] &= (WALL_ALL ^ WALL_DOWN);
-			maze[(i + 1) * w + last_index] &= (WALL_ALL ^ WALL_UP);
-			maze_set[(i + 1) * w + last_index] = set;
+		if (m.empty()) {
+			dfsStack.pop();
+			continue;
 		}
+
+		int s = getRandNum(0, m.size()-1);
+		int ni = i + di[m[s]];
+		int nj = j + dj[m[s]];
+
+		v[ni*w + nj] = 1;
+		maze[i * w + j] &= (WALL_ALL ^ dw[m[s]]);
+		maze[ni * w + nj] &= (WALL_ALL ^ dnw[m[s]]);
+
+		m.clear();
+		dfsStack.push({ ni, nj });
 
 	}
 
 }
 
-void ofApp::loadGame() {
+void ofApp::loadGame(bool reset) {
+
+	if (reset) {
+		blockFound = 0;
+	}
 
 	maze = new int[MAZE_HEIGHT*MAZE_WIDTH];
 	route = new int[MAZE_HEIGHT*MAZE_WIDTH];
@@ -575,11 +600,10 @@ void ofApp::loadGame() {
 	maze_size = (min(ofGetHeight(), ofGetWidth()) - MAZE_OFFSET) / max(MAZE_WIDTH, MAZE_HEIGHT);
 
 	isWon = false;
+	isGiveup = false;
 	isLight = true;
 	lightRadius = maze_size;
 	lightIncrement = 0;
-
-	int* maze_set = new int[MAZE_HEIGHT*MAZE_WIDTH];
 
 	for (int i = 0; i < MAZE_HEIGHT*MAZE_WIDTH; i++) {
 		maze[i] = WALL_ALL;
@@ -588,25 +612,21 @@ void ofApp::loadGame() {
 
 	int seed = time(NULL);
 
-	int set = 0;
+	if (reset) {
+		int init = getRandNum(0, MAZE_HEIGHT*MAZE_WIDTH - 1);
 
-	for (int i = 0; i < MAZE_HEIGHT; i++) {
-		for (int j = 0; j < MAZE_WIDTH; j++) {
-			if (maze_set[i * MAZE_WIDTH + j] > 0) continue;
-			maze_set[i * MAZE_WIDTH + j] = set++;
-		}
-		createMaze(i, MAZE_HEIGHT, MAZE_WIDTH, maze, maze_set, seed);
+		initX = init / MAZE_WIDTH;
+		initY = init % MAZE_HEIGHT;
 	}
-
-	delete maze_set;
-
-	int init = getRandNum(0, MAZE_HEIGHT*MAZE_WIDTH-1);
-
-	initY = init / MAZE_WIDTH;
-	initX = init % MAZE_HEIGHT;
+	else {
+		initX = playerX;
+		initY = playerY;
+	}
 
 	playerX = initX;
 	playerY = initY;
+
+	createMaze(MAZE_HEIGHT, MAZE_WIDTH, maze, {initY, initX});
 
 	setGoal();
 
@@ -614,7 +634,9 @@ void ofApp::loadGame() {
 
 	isPlaying = true;
 
-	game_clock = chrono::steady_clock::now();
+	if (reset) {
+		game_clock = chrono::steady_clock::now();
+	}
 
 }
 
@@ -702,13 +724,13 @@ bool ofApp::DFS()
 		int i = top.first;
 		int j = top.second;
 
-		if (route[i * MAZE_WIDTH + j] & ROUTE_DFS) {
+		if (route[i * MAZE_WIDTH + j] & ROUTE_VISITED) {
 			continue;
 		}
 
 		escapeStack.push(top);
 
-		route[i * MAZE_WIDTH + j] |= ROUTE_DFS;
+		route[i * MAZE_WIDTH + j] |= ROUTE_VISITED;
 
 		if (i == goalY && j == goalX) break;
 
@@ -722,7 +744,7 @@ bool ofApp::DFS()
 			int ni = i + di[k];
 			int nj = j + dj[k];
 
-			if (!(maze[i * MAZE_WIDTH + j] & dw[k]) && !(route[ni * MAZE_WIDTH + nj] & ROUTE_DFS)) {
+			if (!(maze[i * MAZE_WIDTH + j] & dw[k]) && !(route[ni * MAZE_WIDTH + nj] & ROUTE_VISITED)) {
 				dfsStack.push({ ni, nj });
 			}		
 		}

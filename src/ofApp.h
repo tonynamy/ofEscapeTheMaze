@@ -32,24 +32,22 @@
 #include <thread>
 
 // wall bit flag
-#define WALL_UP 0b1000
-#define WALL_RIGHT 0b0100
-#define WALL_DOWN 0b0010
-#define WALL_LEFT 0b0001
-#define WALL_ALL 0b1111
+#define WALL_UP 0b1000 // 위 벽의 존재를 나타내는 Bit Flag
+#define WALL_RIGHT 0b0100  // 오른쪽 벽의 존재를 나타내는 Bit Flag
+#define WALL_DOWN 0b0010 // 아래 벽의 존재를 나타내는 Bit Flag
+#define WALL_LEFT 0b0001 // 윗 벽의 존재를 나타내는 Bit Flag
+#define WALL_ALL 0b1111 // 모든 벽의 존재를 나타내는 Bit Flag
 
 // route bit flag
-#define ROUTE_DFS 0b001
-#define ROUTE_BFS 0b010
-#define ROUTE_ESCAPE 0b100
-#define ROUTE_FULL 0b111
+#define ROUTE_VISITED 0b01
+#define ROUTE_ESCAPE 0b10
 
 // maze size offset
 #define MAZE_OFFSET 10
 
 // maze size
-#define MAZE_DEFAULT_HEIGHT 15
-#define MAZE_DEFAULT_WIDTH 15
+#define MAZE_DEFAULT_HEIGHT 10
+#define MAZE_DEFAULT_WIDTH 10
 
 // wall char
 #define WALL_VERTICAL "|"
@@ -78,10 +76,10 @@ class ofApp : public ofBaseApp {
 		void freeMemory();
 		bool DFS();
 		void drawRoute();
-		int getRandBool(int seed, int i, int j, int w);
+		int getRandBool();
 		int getRandNum(int min, int max);
-		void createMaze(int i, int h, int w, int* maze, int* maze_set, int seed);
-		void loadGame();
+		void createMaze(int h, int w, int* maze, pair<int, int> start);
+		void loadGame(bool reset = true);
 		void gameFinishCheck();
 
 		int MAZE_HEIGHT, MAZE_WIDTH;
@@ -101,6 +99,7 @@ class ofApp : public ofBaseApp {
 		int goalX, goalY;
 		int lightRadius = 0;
 		int lightIncrement = 0;
+		int blockFound = 0;
 		long long elapsedTime;
 
 		chrono::steady_clock::time_point game_clock;
@@ -116,27 +115,21 @@ class ofApp : public ofBaseApp {
 		// Used by example app
 		ofTrueTypeFont myFont;
 		ofTrueTypeFont messageFont;
-        ofImage myImage;
+
 		float windowWidth, windowHeight;
 		HWND hWnd; // Application window
 		HWND hWndForeground; // current foreground window
 
-		// Example menu variables
-		bool bShowInfo;
 		bool bFullscreen;
-		bool bTopmost;
-		// Example functions
  		void doFullScreen(bool bFull);
-		void doTopmost(bool bTop);
 
-		ofColor bfsRouteColor;
-		ofColor dfsRouteColor;
 		ofColor escapeRouteColor;
 
 		bool isPlaying;
 		bool showHint;
 		bool isLight;
-
 		bool isWon;
+		bool isGiveup;
+		bool infiniteMode;
 
 };
